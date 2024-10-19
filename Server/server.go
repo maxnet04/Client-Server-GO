@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -39,31 +40,42 @@ func handlecotacao(w http.ResponseWriter, r *http.Request) {
 
 	cotacao, err := getCotacao(ctx)
 	if err != nil {
+
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Printf("Timeout: Timeout ao obter a cotacao")
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 		} else {
-			log.Printf("Erro ao obter a cotacao: %v", err)
+			log.Printf("Erro ao ao obter a cotacao: %v", err)
+			http.Error(w, "Erro getCotacao", http.StatusInternalServerError)
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
 		return
+
 	}
-	ctxDB, cancelDB := context.WithTimeout(context.Background(), 10*time.Millisecond)
+
+	ctxDB, cancelDB := context.WithTimeout(context.Background(), 100*time.Millisecond)
 
 	defer cancelDB()
 
 	err = saveCotacao(ctxDB, cotacao)
 	if err != nil {
+
 		if ctxDB.Err() == context.DeadlineExceeded {
 			log.Printf("Timeout: Timeout ao salvar a cotação no banco de dados")
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
 		} else {
-			log.Printf("Erro ao saalvar a cotação no banco de dados: %v", err)
+			log.Printf("Erro ao salvar a cotacao no banco de dados: %v", err)
+			http.Error(w, "Erro saveCotacao", http.StatusInternalServerError)
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(cotacao)
+
+	log.Printf("Request Sucesssful")
 
 }
 
@@ -76,16 +88,19 @@ func getCotacao(ctx context.Context) (*Cotacao, error) {
 		return nil, err
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer response.Body.Close()
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	responseJson, err := io.ReadAll(response.Body)
+	if err != nil {
 		return nil, err
 	}
+
+	json.Unmarshal(responseJson, &result)
+
 	cotacao := &Cotacao{
 
 		Code:       result["USDBRL"]["code"],
@@ -101,7 +116,7 @@ func getCotacao(ctx context.Context) (*Cotacao, error) {
 		CreateDate: result["USDBRL"]["bid"],
 	}
 
-	log.Printf("Cotacao: %+v\n", cotacao)
+	//log.Printf("Cotacao: %+v\n", cotacao)
 
 	return cotacao, nil
 

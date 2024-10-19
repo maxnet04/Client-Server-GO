@@ -15,7 +15,7 @@ type Cotacao struct {
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
 	defer cancel()
 
 	cotacao, err := getCotacao(ctx)
@@ -23,7 +23,7 @@ func main() {
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Print("Timeout: Timeout ao obter a cotação do servidor")
 		} else {
-			log.Fatalf("Erro ao obter a cotação: %v", err)
+			log.Fatalf("Erro: %v", err.Error())
 		}
 	}
 
@@ -39,12 +39,19 @@ func getCotacao(ctx context.Context) (*Cotacao, error) {
 		return nil, err
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusRequestTimeout {
+		return nil, fmt.Errorf("Timeout ao obter a cotação")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Erro ao obter a cotação: %s", resp.Status)
+	}
 
 	var cotacao Cotacao
 	if err := json.NewDecoder(resp.Body).Decode(&cotacao); err != nil {

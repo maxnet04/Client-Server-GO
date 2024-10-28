@@ -15,7 +15,7 @@ type Cotacao struct {
 }
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	cotacao, err := getCotacao(ctx)

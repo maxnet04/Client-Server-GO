@@ -35,7 +35,7 @@ func main() {
 
 func handlecotacao(w http.ResponseWriter, r *http.Request) {
 
-	ctx, cancel := context.WithTimeout(r.Context(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(r.Context(), 2000*time.Millisecond)
 	defer cancel()
 
 	cotacao, err := getCotacao(ctx)
@@ -53,7 +53,7 @@ func handlecotacao(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	ctxDB, cancelDB := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctxDB, cancelDB := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 
 	defer cancelDB()
 
